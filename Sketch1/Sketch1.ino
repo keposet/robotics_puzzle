@@ -15,10 +15,10 @@
 #define PinSW 2 //yellow
 
 // rotary flag and values
-int rotPosition = 0;
-int rotPrevPos; 
-int rotCurrentState;
-int rotPrevState;
+int rgbInputVal = 0;
+int prevRGBInputVal; 
+int rotCurrentState; // current value(great dnb producer) of the clk pin
+int rotPrevState;	// previous value of clk pin
 volatile boolean ButtonPressed;  // need volatile for Interrupts
 
 //RGB pins -- these must be pwm 
@@ -30,9 +30,9 @@ volatile boolean ButtonPressed;  // need volatile for Interrupts
 //colour values
 int rgbPin = 9; // used for switching input channel 
 int prevPin;
-int rTrgt = 242;
+int rTrgt = 222;
 int bTrgt = 180;
-int gTrgt = 3; 
+int gTrgt = 115; 
 
 //stage flag
 boolean rgbState = true;
@@ -82,7 +82,7 @@ void checkRGBTarget(int rgb, int lVal) {
 	{
 		target = bTrgt;
 	}
-	if (lVal - target <= 10 && target - lVal >= -10 ) {
+	if (lVal - target <= 10 && lVal - target >= -10 ) {
 		debugPrint("lval ", lVal);
 		debugPrint("target", target);
 		// win 
@@ -107,6 +107,12 @@ void checkRGBTarget(int rgb, int lVal) {
 void rgbStateGate() {
 	if (rPass == true && gPass == true && bPass == true) {
 		rgbState = false; 
+		debugPrint("you won", 1337);
+		debugPrint("you won", 1337);
+		debugPrint("you won", 1337);
+		debugPrint("you won", 1337);
+		debugPrint("you won", 1337);
+		debugPrint("you won", 1337);
 	}
 }
 
@@ -126,6 +132,12 @@ int changeLight(int target, int val, boolean brighter) {
 	return val;
 }
 
+void printRotaryEncoderValues() {
+	debugPrint("current clk ", rotCurrentState);
+	debugPrint("Previous clk", rotPrevState);
+	debugPrint("current dt", digitalRead(PinDT));
+	debugPrint("switch", digitalRead(PinSW));
+}
 
 //--- END Helper Methods
 
@@ -165,23 +177,23 @@ void rgbAction() {
 	debugPrint("rotCurrentState ", rotCurrentState);
 	debugPrint("rot Previous", rotPrevState);
 	if (rotCurrentState != rotPrevState) {
-		rotPrevPos = rotPosition;
+		prevRGBInputVal = rgbInputVal;
 		// If the outputB state is different to the outputA state, that means the encoder is rotating clockwise
 		if (digitalRead(PinDT) != rotCurrentState) {
-			rotPosition = rotPrevPos + 6;
-			rotPosition = enforceLimit(rotPosition);
+			rgbInputVal = prevRGBInputVal + 6;
+			rgbInputVal = enforceLimit(rgbInputVal);
 		}
 		else {
-			rotPosition = rotPrevPos - 6;
-			rotPosition = enforceLimit(rotPosition);
+			rgbInputVal = prevRGBInputVal - 6;
+			rgbInputVal = enforceLimit(rgbInputVal);
 		}
 		//take position and map it 
 		// use map output as input for light 
 
-		debugPrint("Position: ", rotPosition);
-		analogWrite(rgbPin, rotPosition);
+		debugPrint("Position: ", rgbInputVal);
+		analogWrite(rgbPin, rgbInputVal);
 		// need to check against win state
-		checkRGBTarget(rgbPin, rotPosition);
+		checkRGBTarget(rgbPin, rgbInputVal);
 
 	}
 	rotPrevState = rotCurrentState; // Updates the previous state of the outputA with the current state
@@ -192,33 +204,33 @@ void rgbAction() {
 
 // the loop function runs over and over again until power down or reset
 void loop() {
-	
-		debugPrint("rgbAction", 0);
-		rotCurrentState = digitalRead(PinCLK); // Reads the "current" state of the outputA
+	if (rgbState) {
+		rotCurrentState = digitalRead(PinCLK); // 0 or 1 Reads the "current" state of the twisty bit
 											   // If the previous and the current state of the outputA are different, that means a Pulse has occured
-		debugPrint("rotCurrentState ", rotCurrentState);
-		debugPrint("rot Previous", rotPrevState);
-		if (rotCurrentState != rotPrevState) {
-			rotPrevPos = rotPosition;
-			// If the outputB state is different to the outputA state, that means the encoder is rotating clockwise
+
+		if (rotCurrentState != rotPrevState) { // current clk vs old clk
+			prevRGBInputVal = rgbInputVal; // store old input 
+			// If the DT state is different to the CLK state, that means the encoder is rotating clockwise
+			// increment the value
 			if (digitalRead(PinDT) != rotCurrentState) {
-				rotPosition = rotPrevPos + 6;
-				rotPosition = enforceLimit(rotPosition);
+				rgbInputVal += 2;
+				rgbInputVal = enforceLimit(rgbInputVal);
 			}
 			else {
-				rotPosition = rotPrevPos - 6;
-				rotPosition = enforceLimit(rotPosition);
+				// decrement
+				rgbInputVal -= 2;
+				rgbInputVal = enforceLimit(rgbInputVal);
 			}
-			//take position and map it 
-			// use map output as input for light 
 
-			debugPrint("Position: ", rotPosition);
-			analogWrite(rgbPin, rotPosition);
+
+			debugPrint("Position: ", rgbInputVal);
+			analogWrite(rgbPin, rgbInputVal);
 			// need to check against win state
-			checkRGBTarget(rgbPin, rotPosition);
-			rotPrevState = rotCurrentState; // Updates the previous state of the outputA with the current state
+			checkRGBTarget(rgbPin, rgbInputVal);
 		}
+	}
+		
 		
 	//digitalWrite(Blue, LOW);
-	delay(500);
+	//delay(1000);
 }
