@@ -26,20 +26,6 @@ volatile boolean ButtonPressed;  // need volatile for Interrupts
 #define Green 10
 #define Blue 9
 
-//Joystick Pins 
-#define jSW 7
-#define	jX	0 // orange
-#define	jY 1 //yellow
-#define xLED 6
-#define yLED 5
-
-// joystick values
-int jsXTarget = 700;
-int jsYTarget= 700;
-int lightValX = 100; 
-int lightValY = 100;
-int jsXpos; 
-int jsYpos;
 
 //colour values
 int rgbPin = 9; // used for switching input channel 
@@ -167,16 +153,6 @@ void setup() {
 	digitalWrite(Blue,LOW);
 	digitalWrite(Green,LOW);
 
-	//joystick setup
-	pinMode(jX, OUTPUT);
-	digitalWrite(jX, LOW);
-	pinMode(jY, OUTPUT);
-	digitalWrite(jY, LOW);
-	pinMode(jSW, INPUT);
-	digitalWrite(jSW, HIGH);
-	jsXpos = analogRead(jX);
-	jsYpos = analogRead(jY);
-
 	//logging
 	Serial.begin(9600);
 }
@@ -212,78 +188,11 @@ void rgbAction() {
 }
 */
 
-//void jsDecision(int lightPin, int sensorPin, int sVal, int lVal, int target, ) {
-void jsDecision(boolean isX , int position) {
-	//debugPrint("X axis", analogRead(jX));
-	//debugPrint("Y axis", analogRead(jY));
-	
-	int lightPin;
-	int sensorPin;
-	int sVal;
-	int lVal;
-	int target;
-	int curr;
-	int prev;
-	
-	if (isX) {
-		int lightPin = xLED;
-		int sensorPin = jX;
-		int sVal = position; 
-		int lVal = lightValX;
-		int target = jsXTarget;
-	}
-	else
-	{
-		int lightPin = yLED;
-		int sensorPin = jY;
-		int sVal = position;
-		int lVal = lightValY;
-		int target = jsYTarget;
-	}
-	
-		curr = analogRead(sensorPin);
-		prev = sVal;
-		//jsXpos = analogRead(jX);
-		if (curr - target <= 50)
-		{
-			blink(xLED);
-			blink(xLED);
-			blink(xLED);
-			// won something yaya
-		}
-		else
-		{
-			// closer to target
-			if (curr - target < prev - target)
-			{
-				lVal = changeLight(lightPin, lVal, true);
-			}
-			else // further from target
-			{
-				lVal = changeLight(lightPin, lVal, false);
-			}
-		}
-		if (isX) { jsXpos = curr; }
-		else { jsYpos = curr; }; 
 
-}
-
-void jsSense() {
-
-	//debugPrint("X axis", analogRead(jX));
-	//debugPrint("Y axis", analogRead(jY));
-	if (jsXpos != analogRead(jX)){ jsDecision(true, analogRead(jX));}
-	if (jsYpos != analogRead(jY)) { jsDecision(false, analogRead(jY)); }
-	
-	delay(750);
-}
 
 // the loop function runs over and over again until power down or reset
 void loop() {
-	debugPrint("top of loop", 0);
-	if (rgbState) {
-		//debugPrint("rgb phase", 0);
-		//rgbAction();
+	
 		debugPrint("rgbAction", 0);
 		rotCurrentState = digitalRead(PinCLK); // Reads the "current" state of the outputA
 											   // If the previous and the current state of the outputA are different, that means a Pulse has occured
@@ -310,11 +219,6 @@ void loop() {
 			rotPrevState = rotCurrentState; // Updates the previous state of the outputA with the current state
 		}
 		
-	}
-	else
-	{		
-		jsSense();
-	}
 	//digitalWrite(Blue, LOW);
 	delay(500);
 }
