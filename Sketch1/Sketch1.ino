@@ -69,7 +69,7 @@ int enforceLimit(int num) {
 }
 
 // will need current light value, light pin, and target
-void checkRGBTarget(int rgb, int lVal) {
+void checkRGBTarget(int rgb, ) {
 	int target;
 	if (rgb == Red) {
 		target = rTrgt;
@@ -82,8 +82,8 @@ void checkRGBTarget(int rgb, int lVal) {
 	{
 		target = bTrgt;
 	}
-	if (lVal - target <= 10 && lVal - target >= -10 ) {
-		debugPrint("lval ", lVal);
+	if (rgbInputVal - target <= 10 && rgbInputVal - target >= -10 ) {
+		debugPrint("rgbInputVal ", rgbInputVal);
 		debugPrint("target", target);
 		// win 
 		blink(rgb);
@@ -91,14 +91,17 @@ void checkRGBTarget(int rgb, int lVal) {
 		blink(rgb);
 		if (rgb == Red) {
 			rPass = true;
+			rgbInputVal = 0;
 		}
 		else if (rgb == Green)
 		{
 			gPass = true;
+			rgbInputVal = 0;
 		}
 		else if (rgb == Blue)
 		{
 			bPass = true; 
+			rgbInputVal = 0;
 		}
 		rgbStateGate();
 	}
@@ -169,36 +172,7 @@ void setup() {
 	Serial.begin(9600);
 }
 
-/*
-void rgbAction() {
-	debugPrint("rgbAction", 0);
-	rotCurrentState = digitalRead(PinCLK); // Reads the "current" state of the outputA
-										   // If the previous and the current state of the outputA are different, that means a Pulse has occured
-	debugPrint("rotCurrentState ", rotCurrentState);
-	debugPrint("rot Previous", rotPrevState);
-	if (rotCurrentState != rotPrevState) {
-		prevRGBInputVal = rgbInputVal;
-		// If the outputB state is different to the outputA state, that means the encoder is rotating clockwise
-		if (digitalRead(PinDT) != rotCurrentState) {
-			rgbInputVal = prevRGBInputVal + 6;
-			rgbInputVal = enforceLimit(rgbInputVal);
-		}
-		else {
-			rgbInputVal = prevRGBInputVal - 6;
-			rgbInputVal = enforceLimit(rgbInputVal);
-		}
-		//take position and map it 
-		// use map output as input for light 
 
-		debugPrint("Position: ", rgbInputVal);
-		analogWrite(rgbPin, rgbInputVal);
-		// need to check against win state
-		checkRGBTarget(rgbPin, rgbInputVal);
-
-	}
-	rotPrevState = rotCurrentState; // Updates the previous state of the outputA with the current state
-}
-*/
 
 
 
@@ -224,7 +198,7 @@ void loop() {
 
 
 			debugPrint("Position: ", rgbInputVal);
-			analogWrite(rgbPin, rgbInputVal);
+			analogWrite(rgbPin);
 			// need to check against win state
 			checkRGBTarget(rgbPin, rgbInputVal);
 		}
@@ -232,5 +206,5 @@ void loop() {
 		
 		
 	//digitalWrite(Blue, LOW);
-	//delay(1000);
+	//delay(1000); only use delay when debugging. the rotary encoder is difficult to work with when delays are being used
 }
