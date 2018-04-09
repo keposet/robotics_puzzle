@@ -9,6 +9,7 @@
 
 
 // ----BEGIN Variable creation
+
 //Rotary Pins
 #define PinCLK 4 //grey
 #define PinDT 3 //black
@@ -51,17 +52,33 @@ int jsXpos;
 int jsYpos;
 
 
-//stage flag
-boolean rgbState = true;
-	//boolean rgbState = false;
+//stage flags
+//boolean rgbState = true;
+boolean rgbState = false;
 boolean rPass = false;
 boolean gPass = false;
 boolean bPass = false;
 
 boolean jsState = false;
-	//boolean jsState = true;
+//boolean jsState = true;
 boolean xPass = false;
 boolean yPass = false;
+
+//data collection 
+int dataIndex =0; //tracks position of data
+#define DataSize 4 //max size of all target val
+#define RLedTar 'A' //flag for red target
+#define GLedTar 'B' // flag for green
+#define BLedTar 'C' // flag for blue
+#define xTarg 'D' // flag for joystick X
+#define yTarg 'E' // flag for JS Y
+char rTargetArr[3];
+char bTargetArr[3];
+char gTargetArr[3];
+char xTargetArr[3];
+char yTargetArr[3];
+char valHolder[DataSize];
+
 
 //------END	Variable creation
 
@@ -70,18 +87,21 @@ void debugPrint(String message, int val) {
 	Serial.println(message + val);
 }
 
-// Interrupt routine runs when SW reads LOW switched input pin when SW read HIGH again
-void isr() {
-	delay(4);  // delay for Debouncing
-	//debugPrint("pinState ", digitalRead(PinSW));
-	if(digitalRead(PinSW) == 1){
-		rgbPin++;
-		if (rgbPin > 11) rgbPin = 9;
-		rgbInputVal = 0; // zero out input for next light
-		//debugPrint("pin ", rgbPin);
-	}
+void printRotaryEncoderValues() {
+	debugPrint("current clk ", rotCurrentState);
+	debugPrint("Previous clk", rotPrevState);
+	debugPrint("current dt", digitalRead(PinDT));
+	debugPrint("switch", digitalRead(PinSW));
 }
 
+void printJoystick() {
+	debugPrint("X axis	", analogRead(jX));
+	debugPrint("Y axis	", analogRead(jY));
+}
+
+
+
+// ensures that values sent to the rgb led are within 0-255
 int enforceLimit(int num) {
 	if (num > 255) {
 		num = 0; 
@@ -91,7 +111,7 @@ int enforceLimit(int num) {
 	return num;
 }
 
-// will need current light value, light pin, and target
+// value checking for r/g/b stages 
 void checkRGBTarget(int rgb, int val ) {
 	int target;
 	if (rgb == Red) {
@@ -131,6 +151,7 @@ void checkRGBTarget(int rgb, int val ) {
 	}
 }
 
+//flag checking r/g/b and overall success
 void rgbStateGate() {
 	if (rPass == true && gPass == true && bPass == true) {
 		rgbState = false; 
@@ -144,6 +165,7 @@ void rgbStateGate() {
 	}
 }
 
+// blinks any light sent to it 
 void blink(int target) {
 	digitalWrite(target, HIGH);
 	delay(250);
@@ -151,6 +173,7 @@ void blink(int target) {
 	delay(250);
 }
 
+// brightens/dims led as status indicator for JS stage
 int changeLight(int target, int val, boolean brighter) {
 
 	
@@ -179,20 +202,82 @@ int changeLight(int target, int val, boolean brighter) {
 	return val;
 }
 
-void printRotaryEncoderValues() {
-	debugPrint("current clk ", rotCurrentState);
-	debugPrint("Previous clk", rotPrevState);
-	debugPrint("current dt", digitalRead(PinDT));
-	debugPrint("switch", digitalRead(PinSW));
-}
-
-
-void printJoystick() {
-	debugPrint("X axis	", analogRead(jX));
-	debugPrint("Y axis	", analogRead(jY));
-}
 
 //--- END Helper Methods
+
+// Interrupt routine runs when SW reads LOW switched input pin when SW read HIGH again
+void isr() {
+	delay(4);  // delay for Debouncing
+			   //debugPrint("pinState ", digitalRead(PinSW));
+	if (digitalRead(PinSW) == 1) {
+		rgbPin++;
+		if (rgbPin > 11) rgbPin = 9;
+		rgbInputVal = 0; // zero out input for next light
+						 //debugPrint("pin ", rgbPin);
+	}
+}
+
+
+int targetArrayFiller(char targetArray[]) {
+	//debugPrint("in filler", 0);
+	
+
+	for (int i = 1, ii = 0; i < DataSize; i++, ii++) {
+		targetArray[ii] = valHolder[i];
+		//Serial.print(valHolder[i]);
+		Serial.print(targetArray[i]);
+
+	}
+	for (int i = 1; i < 3; i++) {
+		Serial.println(targetArray[i]);
+		//Serial.println("in the for");
+	}
+
+	int ret = atoi(targetArray);
+	Serial.println("ret " + ret);
+	return ret;
+}
+
+// watches for data sent from pi
+void serialEvent() {
+	debugPrint("top of loop index", dataIndex);
+	while (Serial.available()) {
+		char c = Serial.read();
+		//Serial.println(c);
+		if (dataIndex < DataSize) {
+			if (isAlphaNumeric(c)) {
+				valHolder[dataIndex] = c;
+				dataIndex++;
+				//debugPrint("index", dataIndex);
+			}
+		}
+		else
+		{
+			if (isAlpha(valHolder[0])) {
+				if (valHolder[0] == RLedTar) {
+					rTrgt = targetArrayFiller(rTargetArr);
+					//debugPrint("r target	", rTrgt);
+				}
+				else if (valHolder[0] == BLedTar)
+				{
+					bTrgt = targetArrayFiller(bTargetArr);
+				}
+				else if (valHolder[0] == GLedTar) {
+					 gTrgt =  targetArrayFiller(gTargetArr);
+				}
+				else if (valHolder[0] == xTarg) {
+					jsXTarget = targetArrayFiller(xTargetArr);
+				}
+				else if (valHolder[0] == yTarg) {
+					jsYTarget = targetArrayFiller(yTargetArr);
+				}
+			}
+			dataIndex = 0;
+			
+		}
+		
+	}
+}
 
 // the setup function runs once when you press reset or power the board
 void setup() {
@@ -245,8 +330,7 @@ void setup() {
 }
 
 
-
-//void jsDecision(int lightPin, int sensorPin, int sVal, int lVal, int target, ) {
+//heavy lifting for Joystick stage
 void jsDecision(boolean isX , int position) {
 	
 	int lightPin, sensorPin, sVal, lVal, target, curr, prev;
@@ -304,7 +388,7 @@ void jsDecision(boolean isX , int position) {
 
 }
 
-
+ 
 // the loop function runs over and over again until power down or reset
 void loop() {
 	//debugPrint("start loop rgb	", rgbInputVal);
@@ -336,7 +420,7 @@ void loop() {
 			//debugPrint("Position: ", rgbInputVal);
 			// need to check against win state
 			checkRGBTarget(rgbPin, rgbInputVal);
-			delay(50);
+			delay(50); // slows down sensing process to keep from running inc/decrement many times in 1 second
 		}
 	}
 	
