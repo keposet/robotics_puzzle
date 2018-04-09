@@ -18,9 +18,9 @@
 #define xLED 6
 #define yLED 5
 
-// joystick values
-int jsXTarget = 700;
-int jsYTarget= 700;
+// joystick values using a 10k resistor will yield values roughly between 0 - 310
+int jsXTarget = 50;
+int jsYTarget= 220;
 int lightValX = 100; 
 int lightValY = 100;
 int jsXpos; 
@@ -28,7 +28,8 @@ int jsYpos;
 
 
 //stage flag
-boolean rgbState = true;
+//boolean rgbState = true;
+boolean rgbState = false;
 boolean rPass = false;
 boolean gPass = false;
 boolean bPass = false; 
@@ -94,8 +95,7 @@ void jsDecision(boolean isX , int position) {
 	//debugPrint("X axis", analogRead(jX));
 	//debugPrint("Y axis", analogRead(jY));
 	
-	int lightPin;
-	int sensorPin;
+	int lightPin, sensorPin;
 	int sVal;
 	int lVal;
 	int target;
@@ -147,12 +147,12 @@ void jsDecision(boolean isX , int position) {
 
 void jsSense() {
 
-	//debugPrint("X axis", analogRead(jX));
-	//debugPrint("Y axis", analogRead(jY));
-	if (jsXpos != analogRead(jX)){ jsDecision(true, analogRead(jX));}
-	if (jsYpos != analogRead(jY)) { jsDecision(false, analogRead(jY)); }
+	debugPrint("X axis", analogRead(jX));
+	debugPrint("Y axis", analogRead(jY));
+	if(jsXpos != analogRead(jX)){ jsDecision(true, analogRead(jX));}
+	//if (jsYpos != analogRead(jY)) { jsDecision(false, analogRead(jY)); }
 	
-	delay(750);
+	
 }
 
 // the loop function runs over and over again until power down or reset
