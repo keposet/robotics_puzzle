@@ -90,7 +90,7 @@ int enforceLimit(int num) {
 }
 
 // will need current light value, light pin, and target
-void checkRGBTarget(int rgb, ) {
+void checkRGBTarget(int rgb ) {
 	int target;
 	if (rgb == Red) {
 		target = rTrgt;
@@ -137,6 +137,7 @@ void rgbStateGate() {
 		debugPrint("you won", 1337);
 		debugPrint("you won", 1337);
 		debugPrint("you won", 1337);
+		jsState = true;
 	}
 }
 
@@ -321,9 +322,9 @@ void loop() {
 
 
 			debugPrint("Position: ", rgbInputVal);
-			analogWrite(rgbPin);
+			analogWrite(rgbPin, rgbInputVal);
 			// need to check against win state
-			checkRGBTarget(rgbPin, rgbInputVal);
+			checkRGBTarget(rgbPin);
 		}
 	}
 	
