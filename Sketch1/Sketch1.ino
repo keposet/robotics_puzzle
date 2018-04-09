@@ -9,22 +9,7 @@
 
 
 // ----BEGIN Variable creation
-//Rotary Pins
-#define PinCLK 4 //grey
-#define PinDT 3 //black
-#define PinSW 2 //yellow
 
-// rotary flag and values
-int rotPosition = 0;
-int rotPrevPos; 
-int rotCurrentState;
-int rotPrevState;
-volatile boolean ButtonPressed;  // need volatile for Interrupts
-
-//RGB pins -- these must be pwm 
-#define Red 11
-#define Green 10
-#define Blue 9
 
 //Joystick Pins 
 #define jSW 7
@@ -33,26 +18,27 @@ volatile boolean ButtonPressed;  // need volatile for Interrupts
 #define xLED 6
 #define yLED 5
 
-// joystick values
-int jsXTarget = 700;
-int jsYTarget= 700;
-int lightValX = 100; 
-int lightValY = 100;
+// joystick values using a 10k resistor will yield values roughly between 0 - 310
+int jsXTarget = 50;
+int jsYTarget= 220;
+int lightValX = 50; 
+int lightValY = 50;
+int jsTolerance = 2; // allow for the sensor to have 4 degrees of wiggle room 
+int lvChange = 35; // amount to inc/decrement status lights
 int jsXpos; 
 int jsYpos;
 
-//colour values
-int rgbPin = 9; // used for switching input channel 
-int prevPin;
-int rTrgt = 242;
-int bTrgt = 180;
-int gTrgt = 3; 
 
 //stage flag
-boolean rgbState = true;
+//boolean rgbState = true;
+boolean rgbState = false;
 boolean rPass = false;
 boolean gPass = false;
-boolean bPass = false; 
+boolean bPass = false;
+
+boolean jsState = true;
+boolean xPass = false;
+boolean yPass = false;
 
 //------END	Variable creation
 
@@ -62,67 +48,13 @@ void debugPrint(String message, int val) {
 }
 
 // Interrupt routine runs when SW reads LOW switched input pin when SW read HIGH again
-void isr() {
-	delay(4);  // delay for Debouncing
-	//debugPrint("pinState ", digitalRead(PinSW));
-	if(digitalRead(PinSW) == 1){
-		rgbPin++;
-		if (rgbPin > 11) rgbPin = 9;
 
-		debugPrint("pin ", rgbPin);
-	}
-}
 
-int enforceLimit(int num) {
-	if (num > 255) {
-		num = 0; 
-	} else if (num <0){
-		num = 255; 
-	}
-	return num;
-}
 
-// will need current light value, light pin, and target
-void checkRGBTarget(int rgb, int lVal) {
-	int target;
-	if (rgb == Red) {
-		target = rTrgt;
-	}
-	else if (rgb == Green)
-	{
-		target = gTrgt;
-	}
-	else if (rgb == Blue)
-	{
-		target = bTrgt;
-	}
-	if (lVal - target <= 10 && target - lVal >= -10 ) {
-		debugPrint("lval ", lVal);
-		debugPrint("target", target);
-		// win 
-		blink(rgb);
-		blink(rgb);
-		blink(rgb);
-		if (rgb == Red) {
-			rPass = true;
-		}
-		else if (rgb == Green)
-		{
-			gPass = true;
-		}
-		else if (rgb == Blue)
-		{
-			bPass = true; 
-		}
-		rgbStateGate();
-	}
-}
 
-void rgbStateGate() {
-	if (rPass == true && gPass == true && bPass == true) {
-		rgbState = false; 
-	}
-}
+
+
+
 
 void blink(int target) {
 	digitalWrite(target, HIGH);
@@ -132,40 +64,47 @@ void blink(int target) {
 }
 
 int changeLight(int target, int val, boolean brighter) {
+
 	
-	if (brighter) {val += 10;}
-	else{val -= 10;}
+	debugPrint("old val", lightValX);
+	debugPrint("brighter", brighter);
+	if (brighter) {
+		val += lvChange;
+		if (val >= 255)
+		{
+			val = 255;
+		}
+	}
+	else{
+		val -= lvChange;
+		if (val <= 0)
+		{
+			val = 0;
+		}
+	
+	}
+	debugPrint("new val	", val);
 	analogWrite(target, val);
+
+
+	delay(50);
 
 	return val;
 }
 
+
+
+void printJoystick() {
+	debugPrint("X axis	", analogRead(jX));
+	debugPrint("Y axis	", analogRead(jY));
+}
 
 //--- END Helper Methods
 
 // the setup function runs once when you press reset or power the board
 void setup() {
 	// put your setup code here, to run once:
-	// degreee 
-	pinMode(PinCLK, INPUT);
-	// direction
-	pinMode(PinDT, INPUT);
-	//switch  
-	pinMode(PinSW, INPUT);
-	digitalWrite(PinSW, HIGH); // Pull-Up resistor for switch
-	attachInterrupt(0, isr, LOW); // interrupt 0 always connected to pin 2 on Arduino UNO
 
-	rotPrevState = digitalRead(PinCLK);
-
-	//setup lights for O/P
-	pinMode(Red, OUTPUT);
-	pinMode(Blue, OUTPUT);
-	pinMode(Green, OUTPUT);
-
-	//Turn all off to begin
-	digitalWrite(Red,LOW);
-	digitalWrite(Blue,LOW);
-	digitalWrite(Green,LOW);
 
 	//joystick setup
 	pinMode(jX, OUTPUT);
@@ -177,144 +116,113 @@ void setup() {
 	jsXpos = analogRead(jX);
 	jsYpos = analogRead(jY);
 
+	// joystick status LED
+	pinMode(xLED, LOW);
+	analogWrite(xLED, lightValX);
+	delay(200);
+	analogWrite(xLED, 0);
+	pinMode(yLED, LOW);
+	analogWrite(yLED, lightValY);
+	delay(200);
+	analogWrite(yLED, 0);
+
 	//logging
 	Serial.begin(9600);
 }
 
-/*
-void rgbAction() {
-	debugPrint("rgbAction", 0);
-	rotCurrentState = digitalRead(PinCLK); // Reads the "current" state of the outputA
-										   // If the previous and the current state of the outputA are different, that means a Pulse has occured
-	debugPrint("rotCurrentState ", rotCurrentState);
-	debugPrint("rot Previous", rotPrevState);
-	if (rotCurrentState != rotPrevState) {
-		rotPrevPos = rotPosition;
-		// If the outputB state is different to the outputA state, that means the encoder is rotating clockwise
-		if (digitalRead(PinDT) != rotCurrentState) {
-			rotPosition = rotPrevPos + 6;
-			rotPosition = enforceLimit(rotPosition);
-		}
-		else {
-			rotPosition = rotPrevPos - 6;
-			rotPosition = enforceLimit(rotPosition);
-		}
-		//take position and map it 
-		// use map output as input for light 
 
-		debugPrint("Position: ", rotPosition);
-		analogWrite(rgbPin, rotPosition);
-		// need to check against win state
-		checkRGBTarget(rgbPin, rotPosition);
-
-	}
-	rotPrevState = rotCurrentState; // Updates the previous state of the outputA with the current state
-}
-*/
 
 //void jsDecision(int lightPin, int sensorPin, int sVal, int lVal, int target, ) {
 void jsDecision(boolean isX , int position) {
-	//debugPrint("X axis", analogRead(jX));
-	//debugPrint("Y axis", analogRead(jY));
 	
-	int lightPin;
-	int sensorPin;
-	int sVal;
-	int lVal;
-	int target;
-	int curr;
-	int prev;
+	int lightPin, sensorPin, sVal, lVal, target, curr, prev;
 	
+	
+	sVal = position;
 	if (isX) {
-		int lightPin = xLED;
-		int sensorPin = jX;
-		int sVal = position; 
-		int lVal = lightValX;
-		int target = jsXTarget;
+		lightPin = xLED;
+		sensorPin = jX;
+		prev = jsXpos;
+		lVal = lightValX;
+		target = jsXTarget;
+
 	}
 	else
 	{
-		int lightPin = yLED;
-		int sensorPin = jY;
-		int sVal = position;
-		int lVal = lightValY;
-		int target = jsYTarget;
+		lightPin = yLED;
+		sensorPin = jY;
+		prev = jsYpos; 
+		lVal = lightValY;
+		target = jsYTarget;
 	}
 	
-		curr = analogRead(sensorPin);
-		prev = sVal;
-		//jsXpos = analogRead(jX);
-		if (curr - target <= 50)
+		if (abs(sVal - target) <= 10) // win state
 		{
-			blink(xLED);
-			blink(xLED);
-			blink(xLED);
-			// won something yaya
+			blink(lightPin);
+			blink(lightPin);
+			blink(lightPin);
+			if (isX) { xPass = true; } 
+			else { yPass = true;}
+
+			if (xPass && yPass) {
+
+				debugPrint("you won", 1337);
+				jsState = false;
+			}
 		}
-		else
+		else // progress info
 		{
 			// closer to target
-			if (curr - target < prev - target)
+			if (abs(sVal - target) < abs(prev - target))
 			{
-				lVal = changeLight(lightPin, lVal, true);
+				if (isX) { lightValX = changeLight(lightPin, lVal, true); }
+				else { lightValY = lightValX = changeLight(lightPin, lVal, true); }
 			}
-			else // further from target
+			else if (abs(sVal - target) > abs(prev - target));
 			{
-				lVal = changeLight(lightPin, lVal, false);
+				if (isX) { lightValX = changeLight(lightPin, lVal, true); }
+				else { lightValY = lightValX = changeLight(lightPin, lVal, true); }
 			}
 		}
-		if (isX) { jsXpos = curr; }
-		else { jsYpos = curr; }; 
+
+		if (isX) { jsXpos = sVal; }
+		else{ jsYpos = sVal; }
 
 }
 
-void jsSense() {
-
-	//debugPrint("X axis", analogRead(jX));
-	//debugPrint("Y axis", analogRead(jY));
-	if (jsXpos != analogRead(jX)){ jsDecision(true, analogRead(jX));}
-	if (jsYpos != analogRead(jY)) { jsDecision(false, analogRead(jY)); }
-	
-	delay(750);
-}
 
 // the loop function runs over and over again until power down or reset
 void loop() {
-	debugPrint("top of loop", 0);
-	if (rgbState) {
-		//debugPrint("rgb phase", 0);
-		//rgbAction();
-		debugPrint("rgbAction", 0);
-		rotCurrentState = digitalRead(PinCLK); // Reads the "current" state of the outputA
-											   // If the previous and the current state of the outputA are different, that means a Pulse has occured
-		debugPrint("rotCurrentState ", rotCurrentState);
-		debugPrint("rot Previous", rotPrevState);
-		if (rotCurrentState != rotPrevState) {
-			rotPrevPos = rotPosition;
-			// If the outputB state is different to the outputA state, that means the encoder is rotating clockwise
-			if (digitalRead(PinDT) != rotCurrentState) {
-				rotPosition = rotPrevPos + 6;
-				rotPosition = enforceLimit(rotPosition);
-			}
-			else {
-				rotPosition = rotPrevPos - 6;
-				rotPosition = enforceLimit(rotPosition);
-			}
-			//take position and map it 
-			// use map output as input for light 
+	
 
-			debugPrint("Position: ", rotPosition);
-			analogWrite(rgbPin, rotPosition);
-			// need to check against win state
-			checkRGBTarget(rgbPin, rotPosition);
-			rotPrevState = rotCurrentState; // Updates the previous state of the outputA with the current state
+	if (jsState) {
+		//printJoystick();
+		int currX = analogRead(jX);
+		int currY = analogRead(jY);
+		if (currX > (jsXpos + jsTolerance) || currX < (jsXpos - jsTolerance)) {
+			//debugPrint("arX	", currX); 
+			//debugPrint("tolerance", jsXpos + jsTolerance);
+			jsDecision(true, currX);
+			debugPrint("X axis	", currX);
+		}
+		else if(152 < currX < 159)
+		{
+			lightValX = 50;
+			analogWrite(xLED, lightValX);
 		}
 		
+		if (currY > jsYpos + jsTolerance || currY < jsYpos - jsTolerance) {
+			jsDecision(false, currY);
+		}
+		else if (152 < currX < 159)
+		{
+			lightValY = 50;
+			analogWrite(yLED, lightValY);
+		}
+		
+		
 	}
-	else
-	{		
-		jsSense();
-	}
+	
 	//digitalWrite(Blue, LOW);
 	delay(500);
 }
