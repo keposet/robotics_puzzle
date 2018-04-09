@@ -37,7 +37,7 @@ volatile boolean ButtonPressed;  // need volatile for Interrupts
 int rgbPin = 9; // used for switching input channel 
 int prevPin;
 int rTrgt = 222;
-int bTrgt = 180;
+int bTrgt = 97;
 int gTrgt = 115; 
 
 // joystick values using a 10k resistor will yield values roughly between 0 - 310
@@ -45,7 +45,7 @@ int jsXTarget = 50;
 int jsYTarget= 220;
 int lightValX = 50; 
 int lightValY = 50;
-int jsTolerance = 2; // allow for the sensor to have 4 degrees of wiggle room 
+int jsTolerance = 5; // allow for the sensor to have 10 degrees of wiggle room 
 int lvChange = 35; // amount to inc/decrement status lights
 int jsXpos; 
 int jsYpos;
@@ -53,11 +53,13 @@ int jsYpos;
 
 //stage flag
 boolean rgbState = true;
+	//boolean rgbState = false;
 boolean rPass = false;
 boolean gPass = false;
 boolean bPass = false;
 
 boolean jsState = false;
+	//boolean jsState = true;
 boolean xPass = false;
 boolean yPass = false;
 
@@ -75,37 +77,38 @@ void isr() {
 	if(digitalRead(PinSW) == 1){
 		rgbPin++;
 		if (rgbPin > 11) rgbPin = 9;
-
-		debugPrint("pin ", rgbPin);
+		rgbInputVal = 0; // zero out input for next light
+		//debugPrint("pin ", rgbPin);
 	}
 }
 
 int enforceLimit(int num) {
 	if (num > 255) {
 		num = 0; 
-	} else if (num <0){
+	} else if (num < 0){
 		num = 255; 
 	}
 	return num;
 }
 
 // will need current light value, light pin, and target
-void checkRGBTarget(int rgb ) {
+void checkRGBTarget(int rgb, int val ) {
 	int target;
 	if (rgb == Red) {
 		target = rTrgt;
 	}
-	else if (rgb == Green)
-	{
+	else if (rgb == Green){
 		target = gTrgt;
 	}
-	else if (rgb == Blue)
-	{
+	else if (rgb == Blue){
 		target = bTrgt;
 	}
-	if (rgbInputVal - target <= 10 && rgbInputVal - target >= -10 ) {
+	//debugPrint("before if rgb ", rgbInputVal);
+	if (abs(target - val) <= 10) {
 		debugPrint("rgbInputVal ", rgbInputVal);
-		debugPrint("target", target);
+		debugPrint("target	", target);
+		debugPrint("val param	", val);
+		debugPrint("difference", abs(target - val));
 		// win 
 		blink(rgb);
 		blink(rgb);
@@ -151,8 +154,8 @@ void blink(int target) {
 int changeLight(int target, int val, boolean brighter) {
 
 	
-	debugPrint("old val", lightValX);
-	debugPrint("brighter", brighter);
+	//debugPrint("old val", lightValX);
+	//debugPrint("brighter", brighter);
 	if (brighter) {
 		val += lvChange;
 		if (val >= 255)
@@ -168,8 +171,8 @@ int changeLight(int target, int val, boolean brighter) {
 		}
 	
 	}
-	debugPrint("new val	", val);
-	analogWrite(target, val);
+	//debugPrint("new val	", val);
+	//analogWrite(target, val);
 
 	delay(50);
 
@@ -237,6 +240,8 @@ void setup() {
 
 	//logging
 	Serial.begin(9600);
+
+	//debugPrint("setup rgb	", rgbInputVal);
 }
 
 
@@ -302,29 +307,36 @@ void jsDecision(boolean isX , int position) {
 
 // the loop function runs over and over again until power down or reset
 void loop() {
+	//debugPrint("start loop rgb	", rgbInputVal);
 	if (rgbState) {
+		
 		rotCurrentState = digitalRead(PinCLK); // 0 or 1 Reads the "current" state of the twisty bit
 											   // If the previous and the current state of the outputA are different, that means a Pulse has occured
-
-		if (rotCurrentState != rotPrevState) { // current clk vs old clk
+		//printRotaryEncoderValues();
+		if (rotCurrentState != rotPrevState) { // current clk vs old clk change has happened, which direction?
+			
 			prevRGBInputVal = rgbInputVal; // store old input 
 			// If the DT state is different to the CLK state, that means the encoder is rotating clockwise
 			// increment the value
-			if (digitalRead(PinDT) != rotCurrentState) {
-				rgbInputVal += 2;
+			if (digitalRead(PinDT) != rotCurrentState) { // clockwise 
+				rgbInputVal += 5;
 				rgbInputVal = enforceLimit(rgbInputVal);
+				debugPrint("light	", rgbInputVal);
+				
 			}
-			else {
+			else { // counter clockwise 
 				// decrement
-				rgbInputVal -= 2;
+				rgbInputVal -= 5;
 				rgbInputVal = enforceLimit(rgbInputVal);
 			}
 
 
-			debugPrint("Position: ", rgbInputVal);
+			//debugPrint("Position: ", rgbInputVal);
 			analogWrite(rgbPin, rgbInputVal);
+			//debugPrint("Position: ", rgbInputVal);
 			// need to check against win state
-			checkRGBTarget(rgbPin);
+			checkRGBTarget(rgbPin, rgbInputVal);
+			delay(50);
 		}
 	}
 	
@@ -337,7 +349,7 @@ void loop() {
 			//debugPrint("arX	", currX); 
 			//debugPrint("tolerance", jsXpos + jsTolerance);
 			jsDecision(true, currX);
-			debugPrint("X axis	", currX);
+			//debugPrint("X axis	", currX);
 		}
 		else if(152 < currX < 159)
 		{
@@ -357,6 +369,6 @@ void loop() {
 		
 	}
 	
-	//digitalWrite(Blue, LOW);
-	//delay(1000); only use delay when debugging. the rotary encoder is difficult to work with when delays are being used
+	
+	
 }
