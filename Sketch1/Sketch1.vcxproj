@@ -77,9 +77,6 @@
     <DebuggerFlavor>VisualMicroDebugger</DebuggerFlavor>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="encoder example.ino">
-      <FileType>CppCode</FileType>
-    </None>
     <None Include="Sketch1.ino">
       <FileType>CppCode</FileType>
     </None>
