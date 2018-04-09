@@ -21,8 +21,10 @@
 // joystick values using a 10k resistor will yield values roughly between 0 - 310
 int jsXTarget = 50;
 int jsYTarget= 220;
-int lightValX = 100; 
-int lightValY = 100;
+int lightValX = 50; 
+int lightValY = 50;
+int jsTolerance = 2; // allow for the sensor to have 4 degrees of wiggle room 
+int lvChange = 35; // amount to inc/decrement status lights
 int jsXpos; 
 int jsYpos;
 
@@ -32,7 +34,11 @@ int jsYpos;
 boolean rgbState = false;
 boolean rPass = false;
 boolean gPass = false;
-boolean bPass = false; 
+boolean bPass = false;
+
+boolean jsState = true;
+boolean xPass = false;
+boolean yPass = false;
 
 //------END	Variable creation
 
@@ -58,14 +64,40 @@ void blink(int target) {
 }
 
 int changeLight(int target, int val, boolean brighter) {
+
 	
-	if (brighter) {val += 10;}
-	else{val -= 10;}
+	debugPrint("old val", lightValX);
+	debugPrint("brighter", brighter);
+	if (brighter) {
+		val += lvChange;
+		if (val >= 255)
+		{
+			val = 255;
+		}
+	}
+	else{
+		val -= lvChange;
+		if (val <= 0)
+		{
+			val = 0;
+		}
+	
+	}
+	debugPrint("new val	", val);
 	analogWrite(target, val);
+
+
+	delay(50);
 
 	return val;
 }
 
+
+
+void printJoystick() {
+	debugPrint("X axis	", analogRead(jX));
+	debugPrint("Y axis	", analogRead(jY));
+}
 
 //--- END Helper Methods
 
@@ -84,6 +116,16 @@ void setup() {
 	jsXpos = analogRead(jX);
 	jsYpos = analogRead(jY);
 
+	// joystick status LED
+	pinMode(xLED, LOW);
+	analogWrite(xLED, lightValX);
+	delay(200);
+	analogWrite(xLED, 0);
+	pinMode(yLED, LOW);
+	analogWrite(yLED, lightValY);
+	delay(200);
+	analogWrite(yLED, 0);
+
 	//logging
 	Serial.begin(9600);
 }
@@ -92,74 +134,95 @@ void setup() {
 
 //void jsDecision(int lightPin, int sensorPin, int sVal, int lVal, int target, ) {
 void jsDecision(boolean isX , int position) {
-	//debugPrint("X axis", analogRead(jX));
-	//debugPrint("Y axis", analogRead(jY));
 	
 	int lightPin, sensorPin, sVal, lVal, target, curr, prev;
 	
+	
+	sVal = position;
 	if (isX) {
-		int lightPin = xLED;
-		int sensorPin = jX;
-		int sVal = position; 
-		int lVal = lightValX;
-		int target = jsXTarget;
+		lightPin = xLED;
+		sensorPin = jX;
+		prev = jsXpos;
+		lVal = lightValX;
+		target = jsXTarget;
+
 	}
 	else
 	{
-		int lightPin = yLED;
-		int sensorPin = jY;
-		int sVal = position;
-		int lVal = lightValY;
-		int target = jsYTarget;
+		lightPin = yLED;
+		sensorPin = jY;
+		prev = jsYpos; 
+		lVal = lightValY;
+		target = jsYTarget;
 	}
 	
-		curr = analogRead(sensorPin);
-		prev = sVal;
-		//jsXpos = analogRead(jX);
-		if (curr - target <= 50)
+		if (abs(sVal - target) <= 10) // win state
 		{
-			blink(xLED);
-			blink(xLED);
-			blink(xLED);
-			// won something yaya
+			blink(lightPin);
+			blink(lightPin);
+			blink(lightPin);
+			if (isX) { xPass = true; } 
+			else { yPass = true;}
+
+			if (xPass && yPass) {
+
+				debugPrint("you won", 1337);
+				jsState = false;
+			}
 		}
-		else
+		else // progress info
 		{
 			// closer to target
-			if (curr - target < prev - target)
+			if (abs(sVal - target) < abs(prev - target))
 			{
-				lVal = changeLight(lightPin, lVal, true);
+				if (isX) { lightValX = changeLight(lightPin, lVal, true); }
+				else { lightValY = lightValX = changeLight(lightPin, lVal, true); }
 			}
-			else // further from target
+			else if (abs(sVal - target) > abs(prev - target));
 			{
-				lVal = changeLight(lightPin, lVal, false);
+				if (isX) { lightValX = changeLight(lightPin, lVal, true); }
+				else { lightValY = lightValX = changeLight(lightPin, lVal, true); }
 			}
 		}
-		if (isX) { jsXpos = curr; }
-		else { jsYpos = curr; }; 
+
+		if (isX) { jsXpos = sVal; }
+		else{ jsYpos = sVal; }
 
 }
 
-void jsSense() {
-
-	debugPrint("X axis", analogRead(jX));
-	debugPrint("Y axis", analogRead(jY));
-	if(jsXpos != analogRead(jX)){ jsDecision(true, analogRead(jX));}
-	//if (jsYpos != analogRead(jY)) { jsDecision(false, analogRead(jY)); }
-	
-	
-}
 
 // the loop function runs over and over again until power down or reset
 void loop() {
 	
-	if (rgbState) {
+
+	if (jsState) {
+		//printJoystick();
+		int currX = analogRead(jX);
+		int currY = analogRead(jY);
+		if (currX > (jsXpos + jsTolerance) || currX < (jsXpos - jsTolerance)) {
+			//debugPrint("arX	", currX); 
+			//debugPrint("tolerance", jsXpos + jsTolerance);
+			jsDecision(true, currX);
+			debugPrint("X axis	", currX);
+		}
+		else if(152 < currX < 159)
+		{
+			lightValX = 50;
+			analogWrite(xLED, lightValX);
+		}
+		
+		if (currY > jsYpos + jsTolerance || currY < jsYpos - jsTolerance) {
+			jsDecision(false, currY);
+		}
+		else if (152 < currX < 159)
+		{
+			lightValY = 50;
+			analogWrite(yLED, lightValY);
+		}
+		
+		
+	}
 	
-	}
-	else
-	{		
-		jsSense();
-	}
 	//digitalWrite(Blue, LOW);
 	delay(500);
 }
