@@ -95,12 +95,7 @@ void jsDecision(boolean isX , int position) {
 	//debugPrint("X axis", analogRead(jX));
 	//debugPrint("Y axis", analogRead(jY));
 	
-	int lightPin, sensorPin;
-	int sVal;
-	int lVal;
-	int target;
-	int curr;
-	int prev;
+	int lightPin, sensorPin, sVal, lVal, target, curr, prev;
 	
 	if (isX) {
 		int lightPin = xLED;
