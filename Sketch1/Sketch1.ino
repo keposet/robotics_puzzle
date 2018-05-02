@@ -200,7 +200,9 @@ int changeLight(int target, int val, boolean brighter) {
 	}
 	//debugPrint("new val	", val);
 	//analogWrite(target, val);
-	//debugPrint("value", val);
+	debugPrint("brighter	", brighter);
+	debugPrint("value	", val);
+	debugPrint("target	", target);
 	analogWrite(target, val);
 	delay(50);
 
@@ -401,8 +403,8 @@ void jsDecision(boolean isX , int position) {
 			}
 			else if (abs(sVal - target) > abs(prev - target));
 			{
-				if (isX) { lightValX = changeLight(lightPin, lVal, true); }
-				else { lightValY = changeLight(lightPin, lVal, true); }
+				if (isX) { lightValX = changeLight(lightPin, lVal, false); }
+				else { lightValY = changeLight(lightPin, lVal, false); }
 			}
 		}
 
@@ -450,35 +452,41 @@ void loop() {
 	
 	// issue: light does not get brighter and darker nicely 
 	if (jsState) {
-		printJoystick();
+		//printJoystick();
 
 		// read in current positions
 		int currX = analogRead(jX);
 		int currY = analogRead(jY);
 
 		// check that current position is outside the joystick's wiggle factor
-		if (currX > (jsXpos + jsTolerance) || currX < (jsXpos - jsTolerance)) {
-			//debugPrint("arX	", currX); 
-			//debugPrint("tolerance", jsXpos + jsTolerance);
-			jsDecision(true, currX);
-			//debugPrint("X axis	", currX);
-		}
-		else if(140 < currX < 170) // check for a return to neutral position 
+		
+		 if(140 < currX && currX < 170) // check for a return to neutral position 
 		{
 			lightValX = 50;
 			analogWrite(xLED, lightValX);
+			//printJoystick();
+			//delay(50);
 		}
+		 else if (currX >(jsXpos + jsTolerance) || currX < (jsXpos - jsTolerance)) {
+			 debugPrint("currX	", currX); 
+			 debugPrint("tolerance", jsXpos + jsTolerance);
+			 jsDecision(true, currX);
+			 //debugPrint("X axis	", currX);
+		 }
 		
-		if (currY > jsYpos + jsTolerance || currY < jsYpos - jsTolerance) {
-			jsDecision(false, currY);
-		}
-		else if (140 < currY < 170)
+		
+		 if (140 < currY && currY < 170)
 		{
 			lightValY = 50;
 			analogWrite(yLED, lightValY);
+			//printJoystick();
+			delay(50);
 		}
+		 else if (currY > jsYpos + jsTolerance || currY < jsYpos - jsTolerance) {
+			 jsDecision(false, currY);
+		 }
 		
-		
+		 delay(50); 
 	}
 	
 	
