@@ -5,8 +5,8 @@
 */
 
 //rotary code taken from https://howtomechatronics.com/tutorials/arduino/rotary-encoder-works-use-arduino/
-
-
+// very helpful post on serial communication https://startingelectronics.org/software/arduino/learn-to-program-course/19-serial-input/
+#include <ctype.h>
 
 // ----BEGIN Variable creation
 
@@ -59,25 +59,29 @@ boolean rPass = false;
 boolean gPass = false;
 boolean bPass = false;
 
-boolean jsState = false;
-//boolean jsState = true;
+//boolean jsState = false;
+boolean jsState = true;
 boolean xPass = false;
 boolean yPass = false;
 
 //data collection 
 int dataIndex =0; //tracks position of data
-#define DataSize 4 //max size of all target val
+#define DataSize 5 //max size of all target val
 #define RLedTar 'A' //flag for red target
 #define GLedTar 'B' // flag for green
 #define BLedTar 'C' // flag for blue
 #define xTarg 'D' // flag for joystick X
 #define yTarg 'E' // flag for JS Y
-char rTargetArr[3];
+String rx_Str = "";
+char rx_temp; 
+/*char rTargetArr[3];
 char bTargetArr[3];
 char gTargetArr[3];
 char xTargetArr[3];
 char yTargetArr[3];
-char valHolder[DataSize];
+*/
+
+
 
 
 //------END	Variable creation
@@ -196,7 +200,8 @@ int changeLight(int target, int val, boolean brighter) {
 	}
 	//debugPrint("new val	", val);
 	//analogWrite(target, val);
-
+	//debugPrint("value", val);
+	analogWrite(target, val);
 	delay(50);
 
 	return val;
@@ -218,7 +223,8 @@ void isr() {
 }
 
 
-int targetArrayFiller(char targetArray[]) {
+/*
+int targetArrayFiller() {
 	//debugPrint("in filler", 0);
 	
 
@@ -238,42 +244,58 @@ int targetArrayFiller(char targetArray[]) {
 	return ret;
 }
 
+*/
+
+int targetBuilder(String message) {
+	String temp = "";
+
+	for (int i = 0; i < sizeof(message); i++) {
+		if (isDigit(message[i]))
+		{
+			temp += message[i];
+		}
+	}
+
+	return temp.toInt();
+
+
+}
+
 // watches for data sent from pi
 void serialEvent() {
-	debugPrint("top of loop index", dataIndex);
 	while (Serial.available()) {
 		char c = Serial.read();
-		//Serial.println(c);
 		if (dataIndex < DataSize) {
 			if (isAlphaNumeric(c)) {
-				valHolder[dataIndex] = c;
-				dataIndex++;
-				//debugPrint("index", dataIndex);
+				rx_Str += c;
+				//debugPrint("hello", dataIndex);
 			}
+			dataIndex++;
 		}
 		else
 		{
-			if (isAlpha(valHolder[0])) {
-				if (valHolder[0] == RLedTar) {
-					rTrgt = targetArrayFiller(rTargetArr);
-					//debugPrint("r target	", rTrgt);
+			if (isAlpha(rx_Str[0])) {
+				if (rx_Str[0] == RLedTar) {
+					//debugPrint("size of rx_str", sizeof(rx_Str));
+					rTrgt = targetBuilder(rx_Str);
 				}
-				else if (valHolder[0] == BLedTar)
+				else if (rx_Str[0] == BLedTar)
 				{
-					bTrgt = targetArrayFiller(bTargetArr);
+					bTrgt = targetBuilder(rx_Str);
 				}
-				else if (valHolder[0] == GLedTar) {
-					 gTrgt =  targetArrayFiller(gTargetArr);
+				else if (rx_Str[0] == GLedTar) {
+					 gTrgt = targetBuilder(rx_Str);
 				}
-				else if (valHolder[0] == xTarg) {
-					jsXTarget = targetArrayFiller(xTargetArr);
+				else if (rx_Str[0] == xTarg) {
+					jsXTarget = targetBuilder(rx_Str);
 				}
-				else if (valHolder[0] == yTarg) {
-					jsYTarget = targetArrayFiller(yTargetArr);
+				else if (rx_Str[0] == yTarg) {
+					jsYTarget = targetBuilder(rx_Str);
 				}
+				rx_Str = "";
 			}
 			dataIndex = 0;
-			
+			//debugPrint("dataIndex", dataIndex);
 		}
 		
 	}
@@ -371,18 +393,20 @@ void jsDecision(boolean isX , int position) {
 		else // progress info
 		{
 			// closer to target
+			// need to actually write the value to the light
 			if (abs(sVal - target) < abs(prev - target))
 			{
 				if (isX) { lightValX = changeLight(lightPin, lVal, true); }
-				else { lightValY = lightValX = changeLight(lightPin, lVal, true); }
+				else { lightValY = changeLight(lightPin, lVal, true); }
 			}
 			else if (abs(sVal - target) > abs(prev - target));
 			{
 				if (isX) { lightValX = changeLight(lightPin, lVal, true); }
-				else { lightValY = lightValX = changeLight(lightPin, lVal, true); }
+				else { lightValY = changeLight(lightPin, lVal, true); }
 			}
 		}
 
+		// update position with new value
 		if (isX) { jsXpos = sVal; }
 		else{ jsYpos = sVal; }
 
@@ -424,18 +448,22 @@ void loop() {
 		}
 	}
 	
-
+	// issue: light does not get brighter and darker nicely 
 	if (jsState) {
-		//printJoystick();
+		printJoystick();
+
+		// read in current positions
 		int currX = analogRead(jX);
 		int currY = analogRead(jY);
+
+		// check that current position is outside the joystick's wiggle factor
 		if (currX > (jsXpos + jsTolerance) || currX < (jsXpos - jsTolerance)) {
 			//debugPrint("arX	", currX); 
 			//debugPrint("tolerance", jsXpos + jsTolerance);
 			jsDecision(true, currX);
 			//debugPrint("X axis	", currX);
 		}
-		else if(152 < currX < 159)
+		else if(140 < currX < 170) // check for a return to neutral position 
 		{
 			lightValX = 50;
 			analogWrite(xLED, lightValX);
@@ -444,7 +472,7 @@ void loop() {
 		if (currY > jsYpos + jsTolerance || currY < jsYpos - jsTolerance) {
 			jsDecision(false, currY);
 		}
-		else if (152 < currX < 159)
+		else if (140 < currY < 170)
 		{
 			lightValY = 50;
 			analogWrite(yLED, lightValY);
